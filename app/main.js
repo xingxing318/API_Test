@@ -693,10 +693,6 @@ async function onTest() {
   const timeoutMs = Number(els.timeoutMs.value || provider.defaults.timeoutMs || 15000);
 
   try {
-    if (baseUrl) {
-      presetsStore.upsert(capturePresetFromForm());
-      renderPresets();
-    }
     const request = buildRequest({
       provider,
       baseUrl,
@@ -802,10 +798,6 @@ async function onListModels() {
   const timeoutMs = Number(els.timeoutMs.value || provider.defaults.timeoutMs || 15000);
 
   try {
-    if (baseUrl) {
-      presetsStore.upsert(capturePresetFromForm());
-      renderPresets();
-    }
     let final = null;
     for (const p of candidates) {
       const request = buildRequest({
@@ -982,10 +974,6 @@ async function onPing() {
   const timeoutMs = Number(els.timeoutMs.value || provider.defaults.timeoutMs || 15000);
 
   try {
-    if (baseUrl) {
-      presetsStore.upsert(capturePresetFromForm());
-      renderPresets();
-    }
     const pingPath = provider.endpoints.listModels?.path ? provider.endpoints.listModels.path : "";
     const request = buildRequest({
       provider: {
@@ -1040,10 +1028,6 @@ async function onFullTest() {
 
   const sections = [];
   try {
-    if (baseUrl) {
-      presetsStore.upsert(capturePresetFromForm());
-      renderPresets();
-    }
     // 1) ping
     try {
       const pingPath = provider.endpoints.listModels?.path ? provider.endpoints.listModels.path : "";
