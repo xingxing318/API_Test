@@ -1,0 +1,10 @@
+.DS_Store
+.git
+.http-server-5173.log
+.proxy-8787.log
+node_modules
+npm-debug.log
+yarn.lock
+pnpm-lock.yaml
+dist
+build

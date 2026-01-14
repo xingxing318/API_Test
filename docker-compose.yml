@@ -1,0 +1,29 @@
+services:
+  api_test_web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: api_test_web
+    ports:
+      - "${WEB_PORT:-5173}:80"
+    depends_on:
+      - api_test_proxy
+    restart: unless-stopped
+
+  api_test_proxy:
+    build:
+      context: ./proxy
+      dockerfile: Dockerfile
+    container_name: api_test_proxy
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8787"
+    ports:
+      - "${PROXY_PORT:-8787}:8787"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    restart: unless-stopped
+

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>API 连通性测试器</title>
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand__title">API 连通性测试器</div>
+        <div class="brand__sub">本地测试多家 AI 厂商/中转平台 API</div>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="主导航">
+        <button class="tab is-active" role="tab" aria-selected="true" data-tab="home">功能</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="config">配置</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="history">历史</button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="help">帮助</button>
+      </nav>
+    </header>
+
+    <main class="container">
+      <section class="panel is-active" role="tabpanel" data-panel="home">
+        <div class="card card-shelf">
+          <div class="card-shelf__top">
+            <div>
+              <div class="card-shelf__title">数字卡片</div>
+              <div class="muted">保存 Base URL 等参数（不含 API Key），点击卡片一键回填。</div>
+            </div>
+            <div class="card-shelf__actions">
+              <button id="btnClearCards" class="btn btn--danger">清空卡片</button>
+              <button id="btnAddCard" class="btn btn--primary">新增数字卡片</button>
+            </div>
+          </div>
+          <div id="cardList" class="card-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-shelf__top">
+            <div>
+              <div class="card-shelf__title">常用模型</div>
+              <div class="muted">点击模型会填充并复制到剪贴板。</div>
+            </div>
+            <div class="card-shelf__actions">
+              <button id="btnClearModels" class="btn btn--danger">清空模型</button>
+              <button id="btnAddModel" class="btn btn--primary">新增模型</button>
+            </div>
+          </div>
+          <div id="modelChipList" class="chip-list"></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="card__title">快速测试</div>
+
+            <div class="form">
+              <label class="field">
+                <span class="field__label">厂商 / 平台</span>
+                <select id="providerSelect" class="field__control"></select>
+              </label>
+
+              <label class="field">
+                <span class="field__label">Base URL</span>
+                <input id="baseUrl" class="field__control" placeholder="例如：https://api.openai.com/v1" />
+              </label>
+
+              <label class="field">
+                <span class="field__label">API Key（仅本次会话）</span>
+                <input id="apiKey" class="field__control" type="password" placeholder="不会写入历史记录" autocomplete="off" />
+              </label>
+              <div id="apiKeyHint" class="hint"></div>
+
+              <div class="row2">
+                <label class="field">
+                  <span class="field__label">连接方式</span>
+                  <select id="connectMode" class="field__control">
+                    <option value="direct">浏览器直连</option>
+                    <option value="proxy">本地代理</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field__label">代理地址（仅本地代理模式）</span>
+                  <input id="proxyBaseUrl" class="field__control" placeholder="例如：http://127.0.0.1:8787" />
+                </label>
+              </div>
+
+              <div class="row2">
+                <label class="field">
+                  <span class="field__label">模型</span>
+                  <input id="model" class="field__control" placeholder="例如：gpt-4o-mini / deepseek-chat" />
+                </label>
+                <label class="field">
+                  <span class="field__label">超时（ms）</span>
+                  <input id="timeoutMs" class="field__control" type="number" min="1000" step="500" />
+                </label>
+              </div>
+
+              <label class="field">
+                <span class="field__label">测试内容</span>
+                <textarea id="prompt" class="field__control field__control--textarea" rows="4"></textarea>
+              </label>
+
+              <div class="actions">
+                <button id="btnTest" class="btn btn--primary">开始测试</button>
+                <button id="btnPing" class="btn">基础连通</button>
+                <button id="btnListModels" class="btn">获取模型列表</button>
+                <button id="btnFullTest" class="btn">一键全测</button>
+                <button id="btnSaveToHistory" class="btn" disabled>保存到历史</button>
+              </div>
+
+              <div class="hint">
+                提示：若出现 “Failed to fetch / CORS” 等浏览器限制，建议使用本地代理模式（后续待办第 6 项）。
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card__title">结果</div>
+            <div id="result" class="result">
+              <div class="muted">等待测试…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt16">
+          <div class="card__title">模型列表</div>
+          <div class="row2">
+            <input id="modelFilter" class="field__control" placeholder="搜索模型…" />
+            <div class="right muted" id="modelCount">0</div>
+          </div>
+          <div class="hint">模型费率优先尝试从平台的“定价接口”获取（若存在），否则使用本地配置（Provider JSON 的 `pricing`/`pricingTable`）。</div>
+          <div id="modelList" class="model-list"></div>
+        </div>
+      </section>
+
+      <section class="panel" role="tabpanel" data-panel="config">
+        <div class="card">
+          <div class="card__title">配置（简化版）</div>
+          <div class="muted">
+            你可以直接编辑当前 Provider 的 JSON 并保存到本地（仅浏览器本地存储）。历史记录不会保存明文 API Key。
+          </div>
+          <div class="actions mt16">
+            <button id="btnSaveProvider" class="btn btn--primary">保存当前 Provider</button>
+            <button id="btnResetProvider" class="btn">恢复默认</button>
+            <button id="btnExportProviders" class="btn">导出配置</button>
+            <label class="btn" for="importProvidersFile" style="cursor: pointer">导入配置</label>
+            <input id="importProvidersFile" type="file" accept="application/json" style="display: none" />
+          </div>
+          <div class="form mt16">
+            <label class="field">
+              <span class="field__label">当前 Provider JSON</span>
+              <textarea id="providerJson" class="field__control field__control--textarea" rows="16"></textarea>
+            </label>
+            <div id="providerJsonHint" class="hint"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel" role="tabpanel" data-panel="history">
+        <div class="card">
+          <div class="card__title">历史记录</div>
+          <div class="muted" id="historySummary"></div>
+          <div class="row2 mt16">
+            <input id="historyQuery" class="field__control" placeholder="关键字（URL/摘要/Provider）…" />
+            <select id="historyProviderFilter" class="field__control">
+              <option value="">全部 Provider</option>
+            </select>
+          </div>
+          <div class="actions">
+            <button id="btnExportHistory" class="btn">导出 JSON</button>
+            <button id="btnClearHistory" class="btn btn--danger">清空</button>
+          </div>
+          <div id="historyList" class="history-list mt16"></div>
+        </div>
+
+        <dialog id="historyDialog" class="dialog">
+          <div class="dialog__card">
+            <div class="dialog__top">
+              <div class="dialog__title">历史详情</div>
+              <button id="btnCloseHistoryDialog" class="btn">关闭</button>
+            </div>
+            <div class="actions mt16">
+              <button id="btnCopyHistoryJson" class="btn">复制 JSON</button>
+              <button id="btnDeleteHistoryItem" class="btn btn--danger">删除这条</button>
+            </div>
+            <pre id="historyDialogBody" class="dialog__body"></pre>
+          </div>
+        </dialog>
+      </section>
+
+      <dialog id="cardEditDialog" class="dialog">
+        <div class="dialog__card">
+          <div class="dialog__top">
+            <div id="cardEditDialogTitle" class="dialog__title">编辑数字卡片</div>
+            <button id="btnCloseCardEdit" class="btn">关闭</button>
+          </div>
+          <div class="form mt16">
+            <label class="field">
+              <span class="field__label">卡片标题</span>
+              <input id="cardTitle" class="field__control" placeholder="例如：OpenAI 生产环境" />
+            </label>
+            <label class="field">
+              <span class="field__label">厂商 / 平台</span>
+              <select id="cardProvider" class="field__control"></select>
+            </label>
+            <label class="field">
+              <span class="field__label">Base URL</span>
+              <input id="cardBaseUrl" class="field__control" placeholder="例如：https://api.openai.com/v1" />
+            </label>
+            <div class="row2">
+              <label class="field">
+                <span class="field__label">连接方式</span>
+                <select id="cardConnectMode" class="field__control">
+                  <option value="direct">浏览器直连</option>
+                  <option value="proxy">本地代理</option>
+                </select>
+              </label>
+              <label class="field">
+                <span class="field__label">代理地址（本地代理模式）</span>
+                <input id="cardProxyBaseUrl" class="field__control" placeholder="例如：http://127.0.0.1:8787" />
+              </label>
+            </div>
+            <div class="row2">
+              <label class="field">
+                <span class="field__label">模型</span>
+                <input id="cardModel" class="field__control" placeholder="例如：gpt-4o-mini" />
+              </label>
+              <label class="field">
+                <span class="field__label">超时（ms）</span>
+                <input id="cardTimeoutMs" class="field__control" type="number" min="1000" step="500" />
+              </label>
+            </div>
+            <label class="field">
+              <span class="field__label">测试内容</span>
+              <textarea id="cardPrompt" class="field__control field__control--textarea" rows="4"></textarea>
+            </label>
+          </div>
+          <div class="actions mt16">
+            <button id="btnSaveCardEdit" class="btn btn--primary">保存修改</button>
+          </div>
+        </div>
+      </dialog>
+
+      <dialog id="modelEditDialog" class="dialog">
+        <div class="dialog__card">
+          <div class="dialog__top">
+            <div id="modelEditDialogTitle" class="dialog__title">新增常用模型</div>
+            <button id="btnCloseModelEdit" class="btn">关闭</button>
+          </div>
+          <div class="form mt16">
+            <label class="field">
+              <span class="field__label">模型名称</span>
+              <input id="modelNameInput" class="field__control" placeholder="例如：gpt-4o-mini" />
+            </label>
+          </div>
+          <div class="actions mt16">
+            <button id="btnSaveModelEdit" class="btn btn--primary">保存</button>
+          </div>
+        </div>
+      </dialog>
+
+      <section class="panel" role="tabpanel" data-panel="help">
+        <div class="card">
+          <div class="card__title">帮助</div>
+          <ul class="help">
+            <li>本工具优先使用浏览器直接请求 API；部分厂商可能不支持 CORS，会导致浏览器拦截。</li>
+            <li>遇到 401/403：通常是 Key 无效、权限不足或鉴权 Header/Query 配置错误。</li>
+            <li>遇到 429：限流/额度不足；建议降低频率或检查账号配额。</li>
+            <li>遇到 5xx：服务端异常；建议稍后重试并查看厂商状态页。</li>
+            <li>Usage 单位是 tokens（k=千，m=百万），例如 5436 会显示为 5.4k(5436)。</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span class="muted">本地运行建议使用本地 HTTP 服务（例如 `python -m http.server`）以获得更一致的浏览器行为。</span>
+    </footer>
+
+    <script type="module" src="./app/main.js"></script>
+  </body>
+</html>
