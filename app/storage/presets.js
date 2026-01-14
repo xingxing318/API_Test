@@ -26,11 +26,13 @@ function normalizePreset(p) {
   const updatedAt = Number(p?.updatedAt || Date.now());
   const createdAt = Number(p?.createdAt || updatedAt);
   const id = String(p?.id || crypto.randomUUID());
+  const order = Number.isFinite(Number(p?.order)) ? Number(p.order) : null;
 
   return {
     id,
     createdAt,
     updatedAt,
+    order,
     title,
     providerId,
     baseUrl,
@@ -58,23 +60,36 @@ function fingerprint(p) {
 
 export const presetsStore = {
   list() {
-    const items = load()
-      .map(normalizePreset)
-      .sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
-    // newest first for UI
-    return items.slice().reverse();
+    const items = load().map(normalizePreset);
+    const hasOrder = items.length > 0 && items.every((it) => Number.isFinite(it.order));
+    if (hasOrder) return items.slice().sort((a, b) => a.order - b.order);
+    return items.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   },
   upsert(preset) {
     const next = normalizePreset(preset);
     const sig = fingerprint(next);
     const items = load().map(normalizePreset);
+    const hasOrder = items.length > 0 && items.every((it) => Number.isFinite(it.order));
+    const maxOrder = hasOrder ? Math.max(...items.map((it) => it.order)) : -1;
     const idx = items.findIndex((it) => fingerprint(it) === sig);
     if (idx >= 0) {
       const cur = items[idx];
       items.splice(idx, 1);
-      items.push({ ...cur, ...next, id: cur.id, createdAt: cur.createdAt, updatedAt: Date.now() });
+      items.push({
+        ...cur,
+        ...next,
+        id: cur.id,
+        createdAt: cur.createdAt,
+        updatedAt: Date.now(),
+        order: cur.order ?? (hasOrder ? maxOrder + 1 : null),
+      });
     } else {
-      items.push({ ...next, updatedAt: Date.now(), createdAt: next.createdAt || Date.now() });
+      items.push({
+        ...next,
+        updatedAt: Date.now(),
+        createdAt: next.createdAt || Date.now(),
+        order: hasOrder ? maxOrder + 1 : null,
+      });
     }
     while (items.length > MAX) items.shift();
     save(items);
@@ -82,16 +97,43 @@ export const presetsStore = {
   update(id, preset) {
     const next = normalizePreset({ ...preset, id });
     const items = load().map(normalizePreset);
+    const hasOrder = items.length > 0 && items.every((it) => Number.isFinite(it.order));
+    const maxOrder = hasOrder ? Math.max(...items.map((it) => it.order)) : -1;
     const idx = items.findIndex((it) => it.id === id);
     if (idx < 0) {
-      items.push({ ...next, updatedAt: Date.now(), createdAt: next.createdAt || Date.now() });
+      items.push({
+        ...next,
+        updatedAt: Date.now(),
+        createdAt: next.createdAt || Date.now(),
+        order: hasOrder ? maxOrder + 1 : null,
+      });
     } else {
       const cur = items[idx];
       items.splice(idx, 1);
-      items.push({ ...cur, ...next, id: cur.id, createdAt: cur.createdAt, updatedAt: Date.now() });
+      items.push({
+        ...cur,
+        ...next,
+        id: cur.id,
+        createdAt: cur.createdAt,
+        updatedAt: Date.now(),
+        order: cur.order ?? (hasOrder ? maxOrder + 1 : null),
+      });
     }
     while (items.length > MAX) items.shift();
     save(items);
+  },
+  reorder(ids) {
+    const items = load().map(normalizePreset);
+    const map = new Map(items.map((it) => [it.id, it]));
+    const ordered = [];
+    for (const id of ids) {
+      const hit = map.get(id);
+      if (hit) ordered.push(hit);
+      map.delete(id);
+    }
+    for (const rest of map.values()) ordered.push(rest);
+    const next = ordered.map((it, idx) => ({ ...it, order: idx, updatedAt: Date.now() }));
+    save(next);
   },
   delete(id) {
     const items = load().map(normalizePreset);

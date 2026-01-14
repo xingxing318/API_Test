@@ -255,7 +255,7 @@ body {
   border-radius: 14px;
   padding: 12px;
   background: color-mix(in srgb, var(--panel2) 94%, transparent);
-  cursor: pointer;
+  cursor: grab;
   position: relative;
   scroll-snap-align: start;
   transition: transform 160ms ease, border-color 160ms ease;
@@ -362,7 +362,7 @@ body {
   border-radius: 999px;
   padding: 8px 10px;
   background: color-mix(in srgb, var(--panel2) 90%, transparent);
-  cursor: pointer;
+  cursor: grab;
   font-size: 12px;
   font-family: var(--mono);
 }
@@ -385,6 +385,10 @@ body {
 .chip__button--danger {
   border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
   color: color-mix(in srgb, var(--danger) 80%, var(--text));
+}
+
+.is-dragging {
+  opacity: 0.6;
 }
 
 .result {

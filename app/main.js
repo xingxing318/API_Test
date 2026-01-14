@@ -74,6 +74,8 @@ let providers = providerStore.getProviders();
 let historyDialogItemId = null;
 let editingPresetId = null;
 let editingModelId = null;
+let draggingCardId = null;
+let draggingModelId = null;
 
 function setResult(text) {
   els.result.textContent = text;
@@ -263,6 +265,8 @@ function renderPresets() {
   for (const [idx, it] of items.slice(0, 60).entries()) {
     const wrap = document.createElement("div");
     wrap.className = "config-card";
+    wrap.dataset.id = it.id;
+    wrap.setAttribute("draggable", "true");
 
     const providerName = getProviderNameById(it.providerId);
     const baseUrl = it.baseUrl || "-";
@@ -331,6 +335,19 @@ function renderPresets() {
       applyPresetToForm(it);
     });
 
+    wrap.addEventListener("dragstart", (e) => {
+      draggingCardId = it.id;
+      wrap.classList.add("is-dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.setData("text/plain", it.id);
+        e.dataTransfer.effectAllowed = "move";
+      }
+    });
+    wrap.addEventListener("dragend", () => {
+      draggingCardId = null;
+      wrap.classList.remove("is-dragging");
+    });
+
     els.cardList.appendChild(wrap);
   }
 }
@@ -347,6 +364,8 @@ function renderFavoriteModels() {
   for (const it of items) {
     const chip = document.createElement("div");
     chip.className = "chip";
+    chip.dataset.id = it.id;
+    chip.setAttribute("draggable", "true");
     chip.innerHTML = `
       <span>${escapeHtml(it.name)}</span>
       <span class="chip__actions">
@@ -373,6 +392,18 @@ function renderFavoriteModels() {
       }
       applyModelFromChip(it.name);
     });
+    chip.addEventListener("dragstart", (e) => {
+      draggingModelId = it.id;
+      chip.classList.add("is-dragging");
+      if (e.dataTransfer) {
+        e.dataTransfer.setData("text/plain", it.id);
+        e.dataTransfer.effectAllowed = "move";
+      }
+    });
+    chip.addEventListener("dragend", () => {
+      draggingModelId = null;
+      chip.classList.remove("is-dragging");
+    });
     els.modelChipList.appendChild(chip);
   }
 }
@@ -383,6 +414,24 @@ function applyModelFromChip(name) {
   els.model.value = value;
   copyToClipboard(value);
   setResult("已填充并复制模型名称到剪贴板。");
+}
+
+function reorderIds(ids, draggedId, targetId) {
+  const list = ids.slice();
+  const from = list.indexOf(draggedId);
+  if (from < 0) return list;
+  list.splice(from, 1);
+  if (!targetId) {
+    list.push(draggedId);
+    return list;
+  }
+  const to = list.indexOf(targetId);
+  if (to < 0) {
+    list.push(draggedId);
+    return list;
+  }
+  list.splice(to, 0, draggedId);
+  return list;
 }
 
 function syncApiKeyHint() {
@@ -1286,6 +1335,38 @@ function wireEvents() {
     }
     renderFavoriteModels();
     closeModelEditDialog();
+  });
+  els.cardList?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+  els.cardList?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const draggedId = draggingCardId || e.dataTransfer?.getData?.("text/plain");
+    if (!draggedId) return;
+    const target = e.target?.closest?.(".config-card");
+    const targetId = target?.dataset?.id || null;
+    const ids = presetsStore.list().map((it) => it.id);
+    const next = reorderIds(ids, draggedId, targetId);
+    if (next.join() === ids.join()) return;
+    presetsStore.reorder(next);
+    renderPresets();
+    setResult("已更新卡片排序。");
+  });
+  els.modelChipList?.addEventListener("dragover", (e) => {
+    e.preventDefault();
+  });
+  els.modelChipList?.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const draggedId = draggingModelId || e.dataTransfer?.getData?.("text/plain");
+    if (!draggedId) return;
+    const target = e.target?.closest?.(".chip");
+    const targetId = target?.dataset?.id || null;
+    const ids = favoriteModelsStore.list().map((it) => it.id);
+    const next = reorderIds(ids, draggedId, targetId);
+    if (next.join() === ids.join()) return;
+    favoriteModelsStore.reorder(next);
+    renderFavoriteModels();
+    setResult("已更新常用模型排序。");
   });
 
   els.connectMode?.addEventListener("change", () => {
